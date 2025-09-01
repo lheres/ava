@@ -4,6 +4,10 @@ FROM python:3.10-slim
 # Set the working directory inside the container
 WORKDIR /app
 
+# Set the cache directory for Hugging Face transformers to a writable location.
+# This prevents permission errors during the build process.
+ENV TRANSFORMERS_CACHE="/app/cache"
+
 # Copy the requirements file into the container
 COPY requirements.txt .
 
