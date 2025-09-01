@@ -9,6 +9,7 @@ COPY requirements.txt .
 
 # Install Python libraries from the requirements file
 # This is a cleaner way to manage dependencies.
+RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Download and cache the AI model during the build process.
