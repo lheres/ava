@@ -1,9 +1,9 @@
 #tensorflow
 #transformers
 tf-keras
-transformers[tf-cpu]==4.29.2
-tensorflow-cpu==2.12.0
-gradio==3.41.2
-safetensors>=0.3.1
+transformers[tf-cpu]==4.38.2
+tensorflow-cpu==2.15.0
+gradio==4.25.0
+safetensors==0.4.2
 pandas
 numpy
