@@ -7,6 +7,8 @@ colorFrom: yellow
 colorTo: indigo
 short_description: Advanced Virtual Assistant that can perform a Turing test
 ---
+
+Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
 **AI Turing Test Implementation: AVA**
 
 This project contains a conversational AI named AVA (Advanced Virtual Assistant) running inside a Docker container. The goal of this implementation is to create a chatbot that can hold a conversation in a way that is difficult to distinguish from a human, thereby attempting the famous "Turing Test."
