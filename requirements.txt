@@ -3,7 +3,7 @@
 tf-keras
 transformers[tf-cpu]==4.38.2
 #tensorflow-cpu==2.15.0
-torch=2.51.0
+torch==2.51.0
 gradio==4.44.1
 safetensors==0.4.2
 pandas
