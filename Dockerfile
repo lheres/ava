@@ -12,6 +12,7 @@ ENV HF_HOME="/app/cache"
 # --- Caching Layer ---
 # 1. Copy requirements and install dependencies. This layer is cached unless requirements.txt changes.
 COPY requirements.txt .
+RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 2. Copy and run the model download script. This layer is cached unless the script changes.
