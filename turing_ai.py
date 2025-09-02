@@ -1,72 +1,130 @@
 import gradio as gr
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+import torch
 import time
 
-# --- 1. Load Microsoft's GODEL model and tokenizer ---
-# We are using microsoft/GODEL-v1_1-base-seq2seq, a model designed for grounded conversation.
-print("Loading model and tokenizer (microsoft/GODEL-v1_1-base-seq2seq)...")
+# --- Configuration ---
+MODEL_NAME = "microsoft/GODEL-v1_1-base-seq2seq"
+IPEX_AVAILABLE = False
+# ---------------------
+
+# --- Load Model and Tokenizer ---
+print("Loading model and tokenizer from cache...")
 try:
-    tokenizer = AutoTokenizer.from_pretrained('microsoft/GODEL-v1_1-base-seq2seq')
-    model = AutoModelForSeq2SeqLM.from_pretrained('microsoft/GODEL-v1_1-base-seq2seq')
+    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    model = AutoModelForSeq2SeqLM.from_pretrained(MODEL_NAME)
+    # Put the model in evaluation mode. This is important for optimizations.
+    model = model.eval()
     print("Model and tokenizer loaded successfully.")
 except Exception as e:
     print(f"Error loading model: {e}")
-    # Exit if the model can't be loaded, as the app is useless without it.
-    exit()
+    tokenizer = None
+    model = None
+
+# --- Apply Performance Optimizations (IPEX + torch.compile) ---
+if model:
+    try:
+        import intel_extension_for_pytorch as ipex
+        print("Applying Intel Extension for PyTorch (IPEX) optimizations...")
+        # Optimize the model with IPEX, using BFloat16 for a free speed boost
+        model = ipex.optimize(model, dtype=torch.bfloat16)
+        print("Compiling model with torch.compile (this may take a moment)...")
+        # Compile the model with the IPEX backend for maximum performance
+        model = torch.compile(model, backend="ipex")
+        IPEX_AVAILABLE = True
+    except ImportError:
+        print("WARNING: Intel Extension for PyTorch not found. Running in standard mode.")
+    except Exception as e:
+        print(f"WARNING: An error occurred during IPEX optimization: {e}")
+
+# --- Mandatory Model Warmup ---
+def warmup_model():
+    if not all([model, tokenizer, IPEX_AVAILABLE]):
+        print("Skipping warmup.")
+        return
+    print("Starting model warmup...")
+    try:
+        # Prepare a dummy input representative of a real query
+        dummy_text = "Instruction: given a dialog context, continue to respond user. [CONTEXT] User: Hello EOS"
+        inputs = tokenizer(dummy_text, return_tensors="pt")
+        # Run generation a few times to allow torch.compile to optimize graph
+        with torch.cpu.amp.autocast(enabled=True, dtype=torch.bfloat16):
+            for i in range(3):
+                print(f"Warmup run {i+1}/3...")
+                # **FIX**: Pass the attention_mask to the model during warmup
+                _ = model.generate(
+                    inputs["input_ids"],
+                    attention_mask=inputs["attention_mask"],
+                    max_length=10
+                )
+        print("Warmup complete. Model is ready for inference.")
+    except Exception as e:
+        print(f"An error occurred during model warmup: {e}")
+
+if model:
+    warmup_model()
 
 
-# --- 2. Define the AI's response logic ---
-def ava_response(message, history):
-    """
-    Generates a response from the AI using the GODEL model's expected format.
-    """
-    # Build the dialogue history string. GODEL expects turns separated by '|'.
-    dialogue_history = []
-    for user_turn, bot_turn in history:
-        dialogue_history.append(user_turn)
-        dialogue_history.append(bot_turn)
-    dialogue_history.append(message)
+def format_history(message, history):
+    dialog_history = ""
+    if history:
+        for user_msg, model_msg in history:
+            dialog_history += f"User: {user_msg} EOS Person: {model_msg} EOS "
+    dialog_history += f"User: {message} EOS"
+    return dialog_history
+
+
+def predict(message, history):
+    if not tokenizer or not model:
+        yield "Model not loaded. Please check the logs for errors."
+        return
+
+    instruction = "Instruction: given a dialog context, continue to respond user."
+    knowledge = ""
+    dialog_history = format_history(message, history)
+    query = f"{instruction} [CONTEXT] {dialog_history} {knowledge}"
     
-    dialogue_string = " | ".join(dialogue_history)
+    inputs = tokenizer(query, return_tensors="pt")
 
-    # Format the input with the instruction required by the GODEL model
-    prompt = f"Instruction: given a dialog context, continue to reply. Dialogue: {dialogue_string}"
+    # Generate a response using BFloat16 mixed-precision for speed
+    with torch.cpu.amp.autocast(enabled=IPEX_AVAILABLE, dtype=torch.bfloat16):
+        # **FIX**: Pass the attention_mask to the model during prediction
+        outputs = model.generate(
+            inputs["input_ids"],
+            attention_mask=inputs["attention_mask"],
+            max_length=128,
+            min_length=8,
+            top_p=0.9,
+            do_sample=True,
+        )
 
-    # Encode the input and generate a response
-    inputs = tokenizer(prompt, return_tensors="pt")
+    response_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-    # Generate text. For seq2seq, max_length is the length of the *output*.
-    outputs = model.generate(
-        **inputs,
-        max_length=80,  # Max length of the generated response
-        no_repeat_ngram_size=3,
-        num_beams=4,
-        early_stopping=True
+    for char in response_text:
+        yield char
+        time.sleep(0.01)
+
+# --- Gradio Web UI ---
+with gr.Blocks(theme=gr.themes.Soft(), title="GODEL Chatbot") as demo:
+    gr.Markdown(
+        """
+        # 🤖 Conversational AI with Microsoft's GODEL (Optimized)
+        This demo runs a highly optimized version of the GODEL model using Intel IPEX and `torch.compile`.
+        """
     )
-
-    # Decode the output. The entire decoded string is the new response.
-    new_response = tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-    # Simulate a typing effect for a more engaging user experience
-    response_stream = ""
-    for char in new_response:
-        response_stream += char
-        time.sleep(0.02)
-        yield response_stream
-
-# --- 3. Create and launch the Gradio Web App ---
-print("AVA: Systems online. Gradio interface is starting.")
-
-# Using an explicit gr.Blocks() context to prevent rendering errors.
-with gr.Blocks(theme="soft") as demo:
     gr.ChatInterface(
-        fn=ava_response,
-        title="Chat with AVA (Microsoft GODEL)",
-        description="AVA is a conversational AI based on Microsoft's GODEL model. Ask her anything!",
-        theme="soft",
-        examples=[["What's your favorite book?"], ["Explain the theory of relativity in simple terms."], ["Who was Alan Turing?"]]
+        predict,
+        chatbot=gr.Chatbot(height=500),
+        textbox=gr.Textbox(placeholder="Ask me anything...", container=False, scale=7),
+        title=None,
+        description="Start the conversation below.",
+        examples=[["Hello, how are you?"], ["What is the capital of France?"], ["Can you tell me a story?"]],
+        retry_btn=None,
+        undo_btn="Delete Previous",
+        clear_btn="Clear Conversation",
     )
 
-# Launch the web server
-demo.launch(server_name="0.0.0.0", server_port=7860)
+if __name__ == "__main__":
+    print("Starting Gradio interface...")
+    demo.launch(server_name="0.0.0.0", server_port=7860)
 
