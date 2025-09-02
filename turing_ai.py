@@ -1,5 +1,4 @@
 import gradio as gr
-import tensorflow as tf
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import time
 
