@@ -7,13 +7,6 @@ FROM python:3.10-slim
 WORKDIR /app
 
 # --- Environment Tuning & Dependencies ---
-# 1. Install system-level dependencies:
-#    - procps: for `lscpu` to detect physical cores
-#    - libjemalloc-dev: a high-performance memory allocator
-RUN apt-get update && apt-get install -y procps libjemalloc-dev && rm -rf /var/lib/apt/lists/*
-
-# 2. Set environment variables to use the jemalloc allocator and for the transformers cache
-ENV LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libjemalloc.so.2
 ENV HF_HOME="/app/cache"
 
 # --- Caching Layer ---
@@ -30,14 +23,6 @@ RUN python download_model.py
 
 # Copy the main application file into the container
 COPY turing_ai.py .
-COPY entrypoint.sh .
-
-# 3. Make the entrypoint script executable
-RUN chmod +x entrypoint.sh
-
-# --- Execution ---
-# Use the entrypoint script to set CPU-specific ENV VARS and then run the app
-ENTRYPOINT ["./entrypoint.sh"]
 
 # Expose the port that Gradio will run on
 EXPOSE 7860

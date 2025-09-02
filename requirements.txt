@@ -9,4 +9,3 @@ safetensors==0.4.2
 #pandas
 #numpy
 sentencepiece
-intel_extension_for_pytorch
