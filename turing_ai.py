@@ -60,9 +60,11 @@ def predict(message, history):
     response_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
     # Stream the response back to the UI
+    partial_response = ""
     for char in response_text:
-        yield char
+        partial_response += char
         time.sleep(0.01)
+        yield partial_response
 
 # --- Gradio Web UI ---
 with gr.Blocks(theme=gr.themes.Soft(), title="GODEL Chatbot") as demo:
