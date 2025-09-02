@@ -7,7 +7,7 @@ FROM python:3.10-slim
 WORKDIR /app
 
 # Set an environment variable for the transformers cache to a writable directory
-ENV TRANSFORMERS_CACHE="/app/cache"
+ENV HF_HOME="/app/cache"
 
 # --- Caching Layer ---
 # 1. Copy requirements and install dependencies. This layer is cached unless requirements.txt changes.
