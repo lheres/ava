@@ -53,7 +53,7 @@ def warmup_model():
                 print(f"Warmup run {i+1}/3...")
                 _ = model.generate(
                     inputs["input_ids"],
-                    attention_mask=inputs["attention_mask"],
+#                    attention_mask=inputs["attention_mask"],
                     max_length=10
                 )
         print("Warmup complete. Model is ready for inference.")
@@ -86,12 +86,12 @@ def predict(message, history):
     inputs = tokenizer(query, return_tensors="pt")
 
     # Generate a response using BFloat16 mixed-precision for speed
-    with torch.cpu.amp.autocast(enabled=IPEX_AVAILABLE, dtype=torch.bfloat16):
+    with torch.amp.autocast('cpu', enabled=IPEX_AVAILABLE, dtype=torch.bfloat16):
         # **THE FIX IS HERE**: Switched from sampling to beam search
         # by removing `do_sample` and adding `num_beams`. This is more stable.
         outputs = model.generate(
             inputs["input_ids"],
-            attention_mask=inputs["attention_mask"],
+#            attention_mask=inputs["attention_mask"],
             max_length=128,
             num_beams=5,  # Use 5 beams for diverse results
             early_stopping=True,
