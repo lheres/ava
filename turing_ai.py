@@ -59,7 +59,8 @@ def predict(message, history):
         max_length=128,
         num_beams=5,
         early_stopping=True,
-        repetition_penalty=1.2
+        repetition_penalty=1.2,
+        no_repeat_ngram_size=3  # Prevent the model from repeating phrases
     )
 
     response_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
