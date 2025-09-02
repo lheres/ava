@@ -1,6 +1,6 @@
 import gradio as gr
 import tensorflow as tf
-from transformers import TFAutoModelForConditionalGeneration, AutoTokenizer
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 import time
 
 # --- 1. Load Microsoft's GODEL model and tokenizer ---
@@ -8,7 +8,7 @@ import time
 print("Loading model and tokenizer (microsoft/GODEL-v1_1-base-seq2seq)...")
 try:
     tokenizer = AutoTokenizer.from_pretrained('microsoft/GODEL-v1_1-base-seq2seq')
-    model = TFAutoModelForConditionalGeneration.from_pretrained('microsoft/GODEL-v1_1-base-seq2seq')
+    model = AutoModelForSeq2SeqLM.from_pretrained('microsoft/GODEL-v1_1-base-seq2seq')
     print("Model and tokenizer loaded successfully.")
 except Exception as e:
     print(f"Error loading model: {e}")
