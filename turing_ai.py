@@ -26,8 +26,8 @@ def format_history(message, history):
     dialog_history = ""
     if history:
         for user_msg, model_msg in history:
-            dialog_history += f"User: {user_msg} EOS Person: {model_msg} EOS "
-    dialog_history += f"User: {message} EOS"
+            dialog_history += f"User: {user_msg} | Person: {model_msg} | "
+    dialog_history += f"User: {message} |"
     return dialog_history
 
 
