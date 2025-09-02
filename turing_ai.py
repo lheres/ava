@@ -1,17 +1,14 @@
 import gradio as gr
 import tensorflow as tf
-from transformers import TFGPT2LMHeadModel, GPT2Tokenizer
+from transformers import TFAutoModelForConditionalGeneration, AutoTokenizer
 import time
 
-# --- 1. Load the pre-trained model and tokenizer ---
-# This is done once when the script starts to be efficient.
-print("Loading model and tokenizer...")
+# --- 1. Load Microsoft's GODEL model and tokenizer ---
+# We are using microsoft/GODEL-v1_1-base-seq2seq, a model designed for grounded conversation.
+print("Loading model and tokenizer (microsoft/GODEL-v1_1-base-seq2seq)...")
 try:
-    tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
-    # GPT-2 doesn't have a default pad token, so we add one.
-    if tokenizer.pad_token is None:
-        tokenizer.add_special_tokens({'pad_token': '[PAD]'})
-    model = TFGPT2LMHeadModel.from_pretrained('gpt2')
+    tokenizer = AutoTokenizer.from_pretrained('microsoft/GODEL-v1_1-base-seq2seq')
+    model = TFAutoModelForConditionalGeneration.from_pretrained('microsoft/GODEL-v1_1-base-seq2seq')
     print("Model and tokenizer loaded successfully.")
 except Exception as e:
     print(f"Error loading model: {e}")
@@ -22,34 +19,34 @@ except Exception as e:
 # --- 2. Define the AI's response logic ---
 def ava_response(message, history):
     """
-    Generates a response from the AI.
-    'history' is a list of lists provided by Gradio, e.g., [['user_msg_1', 'bot_msg_1']]
+    Generates a response from the AI using the GODEL model's expected format.
     """
-    # Combine the history and the new message to give the model context.
-    context = ""
-    for user_msg, bot_msg in history[-3:]: # Use the last 3 interactions for context
-        context += f"User: {user_msg}\nAVA: {bot_msg}\n"
-    context += f"User: {message}\nAVA:"
+    # Build the dialogue history string. GODEL expects turns separated by '|'.
+    dialogue_history = []
+    for user_turn, bot_turn in history:
+        dialogue_history.append(user_turn)
+        dialogue_history.append(bot_turn)
+    dialogue_history.append(message)
+    
+    dialogue_string = " | ".join(dialogue_history)
+
+    # Format the input with the instruction required by the GODEL model
+    prompt = f"Instruction: given a dialog context, continue to reply. Dialogue: {dialogue_string}"
 
     # Encode the input and generate a response
-    inputs = tokenizer.encode(context, return_tensors='tf', padding=True)
+    inputs = tokenizer(prompt, return_tensors="tf")
 
-    # Generate text with parameters to encourage creative and coherent responses
+    # Generate text. For seq2seq, max_length is the length of the *output*.
     outputs = model.generate(
-        inputs,
-        max_length=len(inputs[0]) + 70,  # Generate up to 70 new tokens
-        pad_token_id=tokenizer.pad_token_id,
-        no_repeat_ngram_size=2,
-        num_return_sequences=1,
-        do_sample=True,
-        temperature=0.7,
-        top_k=50,
-        top_p=0.95,
+        **inputs,
+        max_length=80,  # Max length of the generated response
+        no_repeat_ngram_size=3,
+        num_beams=4,
+        early_stopping=True
     )
 
-    # Decode the output and extract just the newly generated text
-    response_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
-    new_response = response_text[len(context):].strip()
+    # Decode the output. The entire decoded string is the new response.
+    new_response = tokenizer.decode(outputs[0], skip_special_tokens=True)
 
     # Simulate a typing effect for a more engaging user experience
     response_stream = ""
@@ -65,11 +62,12 @@ print("AVA: Systems online. Gradio interface is starting.")
 with gr.Blocks(theme="soft") as demo:
     gr.ChatInterface(
         fn=ava_response,
-        title="Chat with AVA",
-        description="AVA is a conversational AI based on GPT-2. Ask her anything!",
+        title="Chat with AVA (Microsoft GODEL)",
+        description="AVA is a conversational AI based on Microsoft's GODEL model. Ask her anything!",
         theme="soft",
-        examples=[["Hello, who are you?"], ["What is the meaning of life?"], ["Tell me a short story."]]
+        examples=[["What's your favorite book?"], ["Explain the theory of relativity in simple terms."], ["Who was Alan Turing?"]]
     )
 
 # Launch the web server
 demo.launch(server_name="0.0.0.0", server_port=7860)
+

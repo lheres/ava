@@ -1,32 +1,30 @@
 # Use the official Python 3.10 slim image as a base
+# Start from the official Python 3.10 slim image.
+# This version is compatible with the requested libraries.
 FROM python:3.10-slim
 
-# Set the working directory inside the container
+# Set the working directory in the container
 WORKDIR /app
 
-# Set the cache directory for Hugging Face transformers to a writable location.
-# This prevents permission errors during the build process.
+# Set an environment variable for the transformers cache to a writable directory
 ENV TRANSFORMERS_CACHE="/app/cache"
 
-# Copy the requirements file into the container
+# --- Caching Layer ---
+# 1. Copy requirements and install dependencies. This layer is cached unless requirements.txt changes.
 COPY requirements.txt .
-
-# Install Python libraries from the requirements file
-# This is a cleaner way to manage dependencies.
-RUN pip install --upgrade pip
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Download and cache the AI model during the build process.
-# This is a crucial optimization for Hugging Face Spaces.
-RUN python -c "from transformers import TFGPT2LMHeadModel, GPT2Tokenizer; TFGPT2LMHeadModel.from_pretrained('gpt2'); GPT2Tokenizer.from_pretrained('gpt2')"
+# 2. Copy and run the model download script. This layer is cached unless the script changes.
+# This downloads the large model files so they don't need to be downloaded on every startup.
+COPY download_model.py .
+RUN python download_model.py
+# --- End Caching Layer ---
 
-# Copy the rest of the application files
+# Copy the main application file into the container
 COPY turing_ai.py .
-COPY README.md .
 
-# Expose the port that Gradio will run on.
-# This is required by Hugging Face Spaces.
+# Expose the port that Gradio will run on
 EXPOSE 7860
 
-# Set the default command to run the Gradio web app.
+# Command to run the application
 CMD ["python", "turing_ai.py"]
