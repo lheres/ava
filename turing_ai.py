@@ -33,7 +33,7 @@ def ava_response(message, history):
     prompt = f"Instruction: given a dialog context, continue to reply. Dialogue: {dialogue_string}"
 
     # Encode the input and generate a response
-    inputs = tokenizer(prompt, return_tensors="tf")
+    inputs = tokenizer(prompt, return_tensors="pt")
 
     # Generate text. For seq2seq, max_length is the length of the *output*.
     outputs = model.generate(
