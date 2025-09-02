@@ -45,7 +45,7 @@ def predict(message, history):
         return
 
     # Prepare the input for the GODEL model
-    instruction = "Instruction: given a dialog context, continue to respond user."
+    instruction = "Instruction: given a dialog context, you need to respond emphatically."
     knowledge = "" # This can be used for grounded generation, but we'll leave it empty.
     dialog_history = format_history(message, history)
     query = f"{instruction} [CONTEXT] {dialog_history} {knowledge}"
@@ -55,12 +55,12 @@ def predict(message, history):
     # Generate a response using beam search for stable, coherent output
     outputs = model.generate(
         inputs["input_ids"],
-        attention_mask=inputs["attention_mask"],
+        #attention_mask=inputs["attention_mask"],
         max_length=128,
-        num_beams=5,
-        early_stopping=True,
-        repetition_penalty=1.2,
-        no_repeat_ngram_size=3  # Prevent the model from repeating phrases
+        top_p=0.9,
+        do_sample=True,
+        #repetition_penalty=1.2,
+        #no_repeat_ngram_size=3  # Prevent the model from repeating phrases
     )
 
     response_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
