@@ -5,6 +5,7 @@ import time
 
 # --- Configuration ---
 MODEL_NAME = "microsoft/GODEL-v1_1-base-seq2seq"
+MAX_HISTORY_TURNS = 2 # The number of past conversation turns to keep in context
 # ---------------------
 
 # --- Load Model and Tokenizer ---
@@ -21,11 +22,15 @@ except Exception as e:
 
 def format_history(message, history):
     """
-    Formats the conversation history into the string format expected by the GODEL model.
+    Formats the conversation history into the string format expected by the GODEL model,
+    using a sliding window to keep the context from growing too large.
     """
     dialog_history = ""
-    if history:
-        for user_msg, model_msg in history:
+    # Get the last N turns of the conversation to prevent context overflow
+    turns_to_keep = history[-MAX_HISTORY_TURNS:] if history else []
+
+    if turns_to_keep:
+        for user_msg, model_msg in turns_to_keep:
             dialog_history += f"User: {user_msg} EOS Person: {model_msg} EOS "
     dialog_history += f"User: {message} EOS"
     return dialog_history
