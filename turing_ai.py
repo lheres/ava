@@ -1,64 +1,75 @@
+import gradio as gr
 import tensorflow as tf
 from transformers import TFGPT2LMHeadModel, GPT2Tokenizer
 import time
-import random
-import gradio as gr
 
-# --- AI Initialization (same as before) ---
-print("AVA: Booting up and loading language model...")
-TOKENIZER = GPT2Tokenizer.from_pretrained('gpt2')
-MODEL = TFGPT2LMHeadModel.from_pretrained('gpt2')
-TOKENIZER.pad_token = TOKENIZER.eos_token
-print("AVA: Systems online. Gradio interface is starting.")
-# ---
+# --- 1. Load the pre-trained model and tokenizer ---
+# This is done once when the script starts to be efficient.
+print("Loading model and tokenizer...")
+try:
+    tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
+    # GPT-2 doesn't have a default pad token, so we add one.
+    if tokenizer.pad_token is None:
+        tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+    model = TFGPT2LMHeadModel.from_pretrained('gpt2')
+    print("Model and tokenizer loaded successfully.")
+except Exception as e:
+    print(f"Error loading model: {e}")
+    # Exit if the model can't be loaded, as the app is useless without it.
+    exit()
 
-def generate_response(user_input, chat_history_list):
+
+# --- 2. Define the AI's response logic ---
+def ava_response(message, history):
     """
-    Generates a human-like response using the AI model.
-    This function is now designed to work with Gradio's ChatInterface.
+    Generates a response from the AI.
+    'history' is a list of lists provided by Gradio, e.g., [['user_msg_1', 'bot_msg_1']]
     """
-    
-    # Gradio's ChatInterface provides history as a list of lists.
-    # We need to format it into a single string for the model.
-    chat_history_str = "The following is a conversation with AVA, a friendly and thoughtful AI designed to be indistinguishable from a human.\n\n"
-    for human_msg, ai_msg in chat_history_list:
-        chat_history_str += f"You: {human_msg}\nAVA: {ai_msg}\n"
+    # Combine the history and the new message to give the model context.
+    context = ""
+    for user_msg, bot_msg in history[-3:]: # Use the last 3 interactions for context
+        context += f"User: {user_msg}\nAVA: {bot_msg}\n"
+    context += f"User: {message}\nAVA:"
 
-    prompt = chat_history_str + f"You: {user_input}\nAVA:"
-    
-    # Encode the prompt and generate a response
-    input_ids = TOKENIZER.encode(prompt, return_tensors='tf')
-    
-    output_sequences = MODEL.generate(
-        input_ids=input_ids,
-        max_length=len(input_ids[0]) + 100, # Generate a reasonable length response
-        pad_token_id=TOKENIZER.eos_token_id,
-        temperature=1.1,
+    # Encode the input and generate a response
+    inputs = tokenizer.encode(context, return_tensors='tf', padding=True)
+
+    # Generate text with parameters to encourage creative and coherent responses
+    outputs = model.generate(
+        inputs,
+        max_length=len(inputs[0]) + 70,  # Generate up to 70 new tokens
+        pad_token_id=tokenizer.pad_token_id,
+        no_repeat_ngram_size=2,
+        num_return_sequences=1,
+        do_sample=True,
+        temperature=0.7,
         top_k=50,
         top_p=0.95,
-        no_repeat_ngram_size=2
     )
 
-    # Decode the response
-    response_text = TOKENIZER.decode(output_sequences[0], skip_special_tokens=True)
-    
-    # Isolate just the new part of the response
-    new_response = response_text.replace(prompt.replace("\nAVA:", ""), "").strip()
-    
-    # Simulate typing
-    for char in new_response:
-        yield char
-        time.sleep(0.02)
+    # Decode the output and extract just the newly generated text
+    response_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    new_response = response_text[len(context):].strip()
 
-# --- Create and Launch the Gradio Web App ---
-with gr.Blocks(theme="soft") as app:
+    # Simulate a typing effect for a more engaging user experience
+    response_stream = ""
+    for char in new_response:
+        response_stream += char
+        time.sleep(0.02)
+        yield response_stream
+
+# --- 3. Create and launch the Gradio Web App ---
+print("AVA: Systems online. Gradio interface is starting.")
+
+# Using an explicit gr.Blocks() context to prevent rendering errors.
+with gr.Blocks(theme="soft") as demo:
     gr.ChatInterface(
-        fn=generate_response,
+        fn=ava_response,
         title="Chat with AVA",
         description="AVA is a conversational AI based on GPT-2. Ask her anything!",
         theme="soft",
         examples=[["Hello, who are you?"], ["What is the meaning of life?"], ["Tell me a short story."]]
     )
 
-# Launch the app. server_name="0.0.0.0" makes it accessible inside Docker.
-app.launch(server_name="0.0.0.0", server_port=7860)
+# Launch the web server
+demo.launch(server_name="0.0.0.0", server_port=7860)
