@@ -10,4 +10,3 @@ safetensors==0.4.2
 #numpy
 sentencepiece
 intel_extension_for_pytorch
-jemalloc
