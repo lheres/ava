@@ -57,7 +57,7 @@ def predict(message, history):
         inputs["input_ids"],
         #attention_mask=inputs["attention_mask"],
         max_length=128,
-        top_p=0.9,
+        top_p=0.7,
         do_sample=True,
         #repetition_penalty=1.2,
         #no_repeat_ngram_size=3  # Prevent the model from repeating phrases
