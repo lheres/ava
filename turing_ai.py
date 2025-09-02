@@ -51,22 +51,13 @@ def generate_response(user_input, chat_history_list):
         time.sleep(0.02)
 
 # --- Create and Launch the Gradio Web App ---
-with gr.Blocks(theme=gr.themes.Soft()) as app:
-    gr.Markdown(
-    """
-    # 🤖 Conversational AI: AVA
-    This is a demonstration of a conversational AI running on a Docker container, powered by OpenAI's GPT-2 model. 
-    Ask me anything!
-    """
-    )
+with gr.Blocks(theme="soft") as app:
     gr.ChatInterface(
         fn=generate_response,
         title="Chat with AVA",
-        chatbot=gr.Chatbot(height=500),
-        textbox=gr.Textbox(placeholder="Ask me a question...", container=False, scale=7),
-        retry_btn=None,
-        undo_btn="Delete Previous",
-        clear_btn="Clear Conversation",
+        description="AVA is a conversational AI based on GPT-2. Ask her anything!",
+        theme="soft",
+        examples=[["Hello, who are you?"], ["What is the meaning of life?"], ["Tell me a short story."]]
     )
 
 # Launch the app. server_name="0.0.0.0" makes it accessible inside Docker.
