@@ -51,7 +51,6 @@ def warmup_model():
         with torch.cpu.amp.autocast(enabled=True, dtype=torch.bfloat16):
             for i in range(3):
                 print(f"Warmup run {i+1}/3...")
-                # **FIX**: Pass the attention_mask to the model during warmup
                 _ = model.generate(
                     inputs["input_ids"],
                     attention_mask=inputs["attention_mask"],
@@ -88,14 +87,15 @@ def predict(message, history):
 
     # Generate a response using BFloat16 mixed-precision for speed
     with torch.cpu.amp.autocast(enabled=IPEX_AVAILABLE, dtype=torch.bfloat16):
-        # **FIX**: Pass the attention_mask to the model during prediction
+        # **THE FIX IS HERE**: Switched from sampling to beam search
+        # by removing `do_sample` and adding `num_beams`. This is more stable.
         outputs = model.generate(
             inputs["input_ids"],
             attention_mask=inputs["attention_mask"],
             max_length=128,
-            min_length=8,
-            top_p=0.9,
-            do_sample=True,
+            num_beams=5,  # Use 5 beams for diverse results
+            early_stopping=True,
+            repetition_penalty=1.2
         )
 
     response_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
